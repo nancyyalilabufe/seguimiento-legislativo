@@ -1,0 +1,33 @@
+name: Actualizar expedientes CEDOP
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # todos los dias a las 12:00 UTC (09:00 en Catamarca)
+  workflow_dispatch:        # permite tambien correrlo a mano, con un boton
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Correr el scraper
+        run: python scraper.py
+
+      - name: Guardar los cambios en el repositorio
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Actualizacion automatica de expedientes"
+          file_pattern: proyectos_cedop.csv
