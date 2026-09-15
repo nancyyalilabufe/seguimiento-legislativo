@@ -234,7 +234,7 @@
     </div>
     <div class="campo">
       <label for="filtroAutor">Autor</label>
-      <select id="filtroAutor"><option value="">Todos</option></select>
+      <input type="text" id="filtroAutor" placeholder="Nombre del autor...">
     </div>
     <div class="campo">
       <label for="orden">Orden</label>
@@ -285,13 +285,13 @@
     const texto = document.getElementById("buscar").value.trim().toLowerCase();
     const anio = document.getElementById("filtroAnio").value;
     const estado = document.getElementById("filtroEstado").value;
-    const autor = document.getElementById("filtroAutor").value;
+    const autor = document.getElementById("filtroAutor").value.trim().toLowerCase();
     const orden = document.getElementById("orden").value;
 
     let filtrados = datosCompletos.filter(fila => {
       if (anio && fila["Año"] !== anio) return false;
       if (estado && fila["Estado"] !== estado) return false;
-      if (autor && !(fila["Autores"] || "").includes(autor)) return false;
+      if (autor && !(fila["Autores"] || "").toLowerCase().includes(autor)) return false;
       if (texto) {
         const bolsa = [
           fila["extracto"], fila["numero_proyecto"],
@@ -414,16 +414,6 @@
       .sort();
     poblarSelect("filtroAnio", anios);
     poblarSelect("filtroEstado", estados);
-
-    // Cada fila puede tener varios autores separados por "; " -
-    // los separamos para armar una lista unica de nombres.
-    const autores = [...new Set(
-      datosCompletos
-        .flatMap(f => (f["Autores"] || "").split(";"))
-        .map(a => a.trim())
-        .filter(Boolean)
-    )].sort();
-    poblarSelect("filtroAutor", autores);
 
     document.getElementById("statTotal").textContent = datosCompletos.length.toLocaleString("es-AR");
 
