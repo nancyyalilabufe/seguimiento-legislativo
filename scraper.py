@@ -21,8 +21,10 @@ from bs4 import BeautifulSoup
 # ======================= CONFIGURACION =======================
 # Cambia estos numeros segun lo que quieras hacer.
 
-ID_INICIO = 1          # desde que ID empezar
-ID_FIN = 9700          # hasta que ID llegar (inclusive) - con margen extra
+ID_INICIO = 1          # desde que ID empezar (solo se usa la primera vez)
+ID_FIN = 999999        # tope muy alto: en la practica, el freno automatico
+                        # de "no encontrados seguidos" es el que decide
+                        # cuando parar cada vez que corre
 
 ARCHIVO_SALIDA = "proyectos_cedop.csv"
 
@@ -107,7 +109,38 @@ def leer_proyecto(id_proyecto):
             if texto_etiqueta == etiqueta:
                 datos[etiqueta] = texto_valor
 
+    datos["Autores"] = extraer_autores(sopa)
+
     return datos
+
+
+def extraer_autores(sopa):
+    """
+    Busca la tabla "Autor/es" del proyecto y devuelve los nombres
+    encontrados, separados por punto y coma si hay mas de uno.
+    Devuelve cadena vacia si no encuentra la tabla o no hay autores.
+    """
+    encabezado = sopa.find("h2", string=lambda t: t and "Autor" in t)
+    if not encabezado:
+        return ""
+
+    tabla = encabezado.find_next("table")
+    if not tabla:
+        return ""
+
+    cuerpo = tabla.find("tbody")
+    filas = cuerpo.find_all("tr") if cuerpo else []
+
+    nombres = []
+    for fila in filas:
+        celdas = fila.find_all("td")
+        # La segunda celda (indice 1) es "Apellido y Nombre/s"
+        if len(celdas) >= 2:
+            nombre = celdas[1].get_text(strip=True)
+            if nombre:
+                nombres.append(nombre)
+
+    return "; ".join(nombres)
 
 
 def buscar_ultimo_id_guardado():
@@ -132,12 +165,45 @@ def buscar_ultimo_id_guardado():
     return ultimo_id
 
 
+def migrar_columnas_si_hace_falta(columnas):
+    """
+    Si ya existe un CSV de una corrida anterior con columnas distintas
+    a las actuales (por ejemplo, porque agregamos "Autores" despues),
+    reescribe el archivo agregando la columna nueva vacia en las filas
+    viejas, sin perder ningun dato ya guardado.
+    """
+    import os
+    if not os.path.exists(ARCHIVO_SALIDA):
+        return
+
+    with open(ARCHIVO_SALIDA, "r", newline="", encoding="utf-8-sig") as archivo:
+        lector = csv.DictReader(archivo, delimiter=";")
+        columnas_actuales = lector.fieldnames
+        if columnas_actuales == columnas:
+            return  # ya esta al dia, no hay que hacer nada
+        filas = list(lector)
+
+    print(
+        f"Se detecto un cambio de columnas (antes: {columnas_actuales}). "
+        "Actualizando el archivo existente sin perder datos...\n"
+    )
+
+    with open(ARCHIVO_SALIDA, "w", newline="", encoding="utf-8-sig") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=columnas, delimiter=";")
+        escritor.writeheader()
+        for fila in filas:
+            fila_completa = {col: fila.get(col, "") for col in columnas}
+            escritor.writerow(fila_completa)
+
+
 def main():
     columnas = [
         "id_interno", "numero_proyecto", "extracto",
         "Fecha", "Año", "Estado", "Proyecto",
-        "Expediente Electrónico", "TEXTO ORIGINAL",
+        "Expediente Electrónico", "TEXTO ORIGINAL", "Autores",
     ]
+
+    migrar_columnas_si_hace_falta(columnas)
 
     ultimo_guardado = buscar_ultimo_id_guardado()
     if ultimo_guardado is not None and ultimo_guardado >= ID_INICIO:
