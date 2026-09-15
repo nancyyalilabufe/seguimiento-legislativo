@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento Legislativo — Catamarca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --papel: #f6f3ec;
+    --panel: #fffdf9;
+    --tinta: #1c1b18;
+    --tinta-suave: #5c584f;
+    --linea: #ddd6c5;
+    --marino: #1f3350;
+    --vino: #7c2438;
+    --oro: #9c7a2f;
+    --verde-tramite: #2f6d4f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: "Inter", -apple-system, sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, .serif { font-family: "Source Serif 4", Georgia, serif; }
+
+  .masthead {
+    background: var(--marino);
+    color: #f1ede2;
+    padding: 40px 24px 32px;
+  }
+  .masthead-inner {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+  .masthead-titulo p.institucion {
+    margin: 0 0 6px 0;
+    font-size: 0.85rem;
+    color: #b9c3d2;
+    font-weight: 500;
+  }
+  .masthead-titulo h1 {
+    margin: 0 0 8px 0;
+    font-size: 2.1rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+  .masthead-titulo p.bajada {
+    margin: 0;
+    font-size: 0.92rem;
+    color: #c7cedb;
+    max-width: 46ch;
+    line-height: 1.5;
+  }
+  .stat-hero { text-align: right; min-width: 160px; }
+  .stat-hero .numero {
+    font-family: "Source Serif 4", serif;
+    font-size: 2.6rem;
+    font-weight: 600;
+    line-height: 1;
+    color: #fff;
+  }
+  .stat-hero .etiqueta { font-size: 0.78rem; color: #b9c3d2; margin-top: 4px; }
+
+  .contenedor { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+
+  .filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-items: flex-end;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--linea);
+  }
+  .campo { display: flex; flex-direction: column; gap: 5px; }
+  .campo label { font-size: 0.76rem; color: var(--tinta-suave); font-weight: 500; }
+  .campo input, .campo select {
+    border: none;
+    border-bottom: 1px solid var(--linea);
+    background: transparent;
+    padding: 6px 2px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    color: var(--tinta);
+    min-width: 130px;
+  }
+  .campo input:focus, .campo select:focus { outline: none; border-bottom-color: var(--marino); }
+  .campo.buscar { flex: 1; min-width: 220px; }
+  .campo.buscar input { width: 100%; }
+
+  .resumen { padding: 16px 0 4px; font-size: 0.82rem; color: var(--tinta-suave); }
+
+  .registro {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--linea);
+    display: grid;
+    grid-template-columns: 108px 1fr auto;
+    gap: 20px;
+    align-items: start;
+  }
+  .registro .col-num {
+    font-family: "Source Serif 4", serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--vino);
+    line-height: 1.3;
+  }
+  .registro .col-num .anio {
+    display: block;
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+    font-size: 0.76rem;
+    color: var(--tinta-suave);
+    margin-top: 2px;
+  }
+  .registro .extracto { margin: 0 0 8px 0; line-height: 1.5; font-size: 0.95rem; }
+  .registro .meta {
+    display: flex; flex-wrap: wrap; gap: 4px 18px;
+    font-size: 0.78rem; color: var(--tinta-suave);
+  }
+  .registro .meta b { color: var(--tinta); font-weight: 600; }
+  .col-estado { text-align: right; min-width: 120px; }
+  .estado-tag { font-size: 0.72rem; font-weight: 600; display: inline-block; }
+  .estado-tag.en-tramite { color: var(--verde-tramite); }
+  .estado-tag.archivado { color: var(--tinta-suave); }
+  .estado-tag.otro { color: var(--oro); }
+  .link-original {
+    display: block; margin-top: 8px; font-size: 0.78rem;
+    color: var(--marino); text-decoration: none; font-weight: 500;
+  }
+  .link-original:hover { text-decoration: underline; }
+
+  @media (max-width: 640px) {
+    .registro { grid-template-columns: 1fr; gap: 6px; }
+    .col-estado { text-align: left; }
+    .stat-hero { text-align: left; }
+    .masthead-inner { align-items: flex-start; }
+  }
+
+  .vacio { padding: 50px 0; text-align: center; color: var(--tinta-suave); font-size: 0.9rem; }
+
+  .paginado { display: flex; justify-content: center; gap: 10px; padding: 30px 0 50px; }
+  .paginado button {
+    border: 1px solid var(--linea); background: var(--panel);
+    padding: 7px 16px; font-size: 0.82rem; font-family: inherit;
+    cursor: pointer; color: var(--tinta);
+  }
+  .paginado button:disabled { opacity: 0.4; cursor: default; }
+  .paginado button.activo { background: var(--marino); color: white; border-color: var(--marino); }
+
+  footer { text-align: center; padding: 24px; font-size: 0.76rem; color: var(--tinta-suave); }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-titulo">
+      <p class="institucion">Honorable Cámara de Diputados de Catamarca</p>
+      <h1>Seguimiento Legislativo</h1>
+      <p class="bajada">Registro público de proyectos ingresados a la Cámara, actualizado automáticamente todos los días.</p>
+    </div>
+    <div class="stat-hero">
+      <div class="numero" id="statTotal">—</div>
+      <div class="etiqueta">expedientes registrados</div>
+    </div>
+  </div>
+</div>
+
+<div class="contenedor">
+
+  <div class="filtros">
+    <div class="campo buscar">
+      <label for="buscar">Buscar por palabra clave</label>
+      <input type="text" id="buscar" placeholder="Ej: educación, vial, minería...">
+    </div>
+    <div class="campo">
+      <label for="filtroAnio">Año</label>
+      <select id="filtroAnio"><option value="">Todos</option></select>
+    </div>
+    <div class="campo">
+      <label for="filtroEstado">Estado</label>
+      <select id="filtroEstado"><option value="">Todos</option></select>
+    </div>
+    <div class="campo">
+      <label for="orden">Orden</label>
+      <select id="orden">
+        <option value="nuevos">Más nuevos primero</option>
+        <option value="viejos">Más viejos primero</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="resumen" id="resumen">Cargando expedientes…</div>
+  <div id="listado"></div>
+  <div class="paginado" id="paginado"></div>
+
+</div>
+
+<footer>Datos extraídos automáticamente de cedop.gob.ar</footer>
+
+<script>
+  const ARCHIVO_CSV = "proyectos_cedop.csv";
+  const URL_BASE_PROYECTO = "https://cedop.gob.ar/buscar/Proyecto/";
+  const POR_PAGINA = 20;
+
+  let datosCompletos = [];
+  let paginaActual = 1;
+
+  function clasificarEstado(estado) {
+    const e = (estado || "").toUpperCase();
+    if (e.includes("TRAMITE")) return "en-tramite";
+    if (e.includes("ARCHIVADO")) return "archivado";
+    return "otro";
+  }
+
+  function poblarSelect(id, valores) {
+    const select = document.getElementById(id);
+    valores.forEach(v => {
+      if (!v) return;
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+  }
+
+  function aplicarFiltros() {
+    const texto = document.getElementById("buscar").value.trim().toLowerCase();
+    const anio = document.getElementById("filtroAnio").value;
+    const estado = document.getElementById("filtroEstado").value;
+    const orden = document.getElementById("orden").value;
+
+    let filtrados = datosCompletos.filter(fila => {
+      if (anio && fila["Año"] !== anio) return false;
+      if (estado && fila["Estado"] !== estado) return false;
+      if (texto) {
+        const bolsa = [
+          fila["extracto"], fila["numero_proyecto"],
+          fila["Expediente Electrónico"], fila["Proyecto"]
+        ].join(" ").toLowerCase();
+        if (!bolsa.includes(texto)) return false;
+      }
+      return true;
+    });
+
+    filtrados.sort((a, b) => {
+      const idA = parseInt(a.id_interno, 10) || 0;
+      const idB = parseInt(b.id_interno, 10) || 0;
+      return orden === "nuevos" ? idB - idA : idA - idB;
+    });
+
+    return filtrados;
+  }
+
+  function renderizar() {
+    const filtrados = aplicarFiltros();
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+    paginaActual = Math.min(paginaActual, totalPaginas);
+
+    document.getElementById("resumen").textContent =
+      filtrados.length === 0
+        ? "No se encontraron expedientes con esos filtros."
+        : `${filtrados.length} expediente(s) — página ${paginaActual} de ${totalPaginas}`;
+
+    const inicio = (paginaActual - 1) * POR_PAGINA;
+    const pagina = filtrados.slice(inicio, inicio + POR_PAGINA);
+
+    const listado = document.getElementById("listado");
+    listado.innerHTML = "";
+
+    if (pagina.length === 0) {
+      listado.innerHTML = '<div class="vacio">Probá con otros filtros.</div>';
+    }
+
+    pagina.forEach(fila => {
+      const div = document.createElement("div");
+      div.className = "registro";
+      const claseEstado = clasificarEstado(fila["Estado"]);
+      const urlOriginal = URL_BASE_PROYECTO + encodeURIComponent(fila.id_interno);
+
+      div.innerHTML = `
+        <div class="col-num">
+          ${(fila["numero_proyecto"] || "").replace("Proyecto N°", "N°")}
+          <span class="anio">${fila["Año"] || ""}</span>
+        </div>
+        <div>
+          <p class="extracto">${fila["extracto"] || "(sin extracto)"}</p>
+          <div class="meta">
+            <span><b>Tipo:</b> ${fila["Proyecto"] || "-"}</span>
+            <span><b>Fecha:</b> ${fila["Fecha"] || "-"}</span>
+            <span><b>Expediente:</b> ${fila["Expediente Electrónico"] || "-"}</span>
+          </div>
+        </div>
+        <div class="col-estado">
+          <span class="estado-tag ${claseEstado}">${fila["Estado"] || "Sin estado"}</span>
+          <a class="link-original" href="${urlOriginal}" target="_blank" rel="noopener">Ver original ↗</a>
+        </div>
+      `;
+      listado.appendChild(div);
+    });
+
+    renderizarPaginado(totalPaginas);
+  }
+
+  function renderizarPaginado(totalPaginas) {
+    const cont = document.getElementById("paginado");
+    cont.innerHTML = "";
+    if (totalPaginas <= 1) return;
+
+    const crearBoton = (texto, pagina, deshabilitado, activo) => {
+      const btn = document.createElement("button");
+      btn.textContent = texto;
+      btn.disabled = deshabilitado;
+      if (activo) btn.classList.add("activo");
+      btn.addEventListener("click", () => {
+        paginaActual = pagina;
+        renderizar();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      cont.appendChild(btn);
+    };
+
+    crearBoton("← Anterior", paginaActual - 1, paginaActual === 1, false);
+    crearBoton(`${paginaActual} / ${totalPaginas}`, paginaActual, true, true);
+    crearBoton("Siguiente →", paginaActual + 1, paginaActual === totalPaginas, false);
+  }
+
+  function inicializarFiltros() {
+    const anios = [...new Set(datosCompletos.map(f => f["Año"]).filter(Boolean))]
+      .sort((a, b) => b - a);
+    const estados = [...new Set(datosCompletos.map(f => f["Estado"]).filter(Boolean))]
+      .sort();
+    poblarSelect("filtroAnio", anios);
+    poblarSelect("filtroEstado", estados);
+
+    document.getElementById("statTotal").textContent = datosCompletos.length.toLocaleString("es-AR");
+
+    ["buscar", "filtroAnio", "filtroEstado", "orden"].forEach(id => {
+      document.getElementById(id).addEventListener("input", () => {
+        paginaActual = 1;
+        renderizar();
+      });
+    });
+  }
+
+  Papa.parse(ARCHIVO_CSV, {
+    download: true,
+    header: true,
+    delimiter: ";",
+    skipEmptyLines: true,
+    complete: function (resultado) {
+      datosCompletos = resultado.data;
+      inicializarFiltros();
+      renderizar();
+    },
+    error: function () {
+      document.getElementById("resumen").textContent =
+        "No se pudo cargar el archivo de expedientes.";
+    }
+  });
+</script>
+
+</body>
+</html>
