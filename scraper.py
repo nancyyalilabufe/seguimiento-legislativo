@@ -196,6 +196,60 @@ def migrar_columnas_si_hace_falta(columnas):
             escritor.writerow(fila_completa)
 
 
+def completar_autores_faltantes(columnas):
+    """
+    Recorre el CSV existente y, para las filas que ya tienen datos
+    pero les falta el autor (por ejemplo, porque fueron guardadas
+    antes de que el scraper supiera leer esa parte), vuelve a pedir
+    esa pagina puntual y completa el dato. Guarda el progreso cada
+    cierta cantidad de filas, para no perder nada si se corta.
+    """
+    import os
+    if not os.path.exists(ARCHIVO_SALIDA):
+        return
+
+    with open(ARCHIVO_SALIDA, "r", newline="", encoding="utf-8-sig") as archivo:
+        lector = csv.DictReader(archivo, delimiter=";")
+        filas = list(lector)
+
+    faltantes = [
+        i for i, fila in enumerate(filas)
+        if (fila.get("numero_proyecto") or "").strip()
+        and not (fila.get("Autores") or "").strip()
+    ]
+
+    if not faltantes:
+        return
+
+    print(
+        f"Se encontraron {len(faltantes)} expedientes ya guardados sin "
+        "autor cargado. Completando ese dato (esto puede tardar)...\n"
+    )
+
+    CADA_CUANTO_GUARDAR = 50
+
+    for contador, indice in enumerate(faltantes, start=1):
+        id_interno = filas[indice]["id_interno"]
+        datos_nuevos = leer_proyecto(int(id_interno))
+        if datos_nuevos:
+            filas[indice]["Autores"] = datos_nuevos.get("Autores", "")
+            print(f"  [{contador}/{len(faltantes)}] ID {id_interno} -> autor completado")
+        else:
+            print(f"  [{contador}/{len(faltantes)}] ID {id_interno} -> no se pudo volver a leer")
+
+        if contador % CADA_CUANTO_GUARDAR == 0 or contador == len(faltantes):
+            with open(ARCHIVO_SALIDA, "w", newline="", encoding="utf-8-sig") as archivo:
+                escritor = csv.DictWriter(archivo, fieldnames=columnas, delimiter=";")
+                escritor.writeheader()
+                for fila in filas:
+                    escritor.writerow({col: fila.get(col, "") for col in columnas})
+            print(f"  (progreso guardado: {contador}/{len(faltantes)})\n")
+
+        time.sleep(PAUSA_SEGUNDOS)
+
+    print("Listo, se completaron los autores faltantes.\n")
+
+
 def main():
     columnas = [
         "id_interno", "numero_proyecto", "extracto",
@@ -204,6 +258,7 @@ def main():
     ]
 
     migrar_columnas_si_hace_falta(columnas)
+    completar_autores_faltantes(columnas)
 
     ultimo_guardado = buscar_ultimo_id_guardado()
     if ultimo_guardado is not None and ultimo_guardado >= ID_INICIO:
