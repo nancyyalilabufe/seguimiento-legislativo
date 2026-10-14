@@ -303,9 +303,13 @@
     });
 
     filtrados.sort((a, b) => {
+      const fechaA = a["Fecha"] || "";
+      const fechaB = b["Fecha"] || "";
       const idA = parseInt(a.id_interno, 10) || 0;
       const idB = parseInt(b.id_interno, 10) || 0;
-      return orden === "nuevos" ? idB - idA : idA - idB;
+      // Primero compara por fecha; si es el mismo día, desempata por ID
+      let comparacion = fechaA.localeCompare(fechaB) || (idA - idB);
+      return orden === "nuevos" ? -comparacion : comparacion;
     });
 
     return filtrados;
